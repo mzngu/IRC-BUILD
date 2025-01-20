@@ -8,7 +8,7 @@ export class CreateUserDto {
   @IsEmail()
   email: string;
 
-  @IsPhoneNumber('ZZ') // pour les numeros international
+  @IsPhoneNumber('FR') // pour les numeros international
   phoneNumber: string;
 
   @IsString()
