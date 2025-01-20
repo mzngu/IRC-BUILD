@@ -22,6 +22,7 @@ export class UsersService {
     try {
         return await createdUser.save();
     } catch (error) {
+        console.error(error)
         throw new HttpException('Error creating user', HttpStatus.INTERNAL_SERVER_ERROR)
     }
   }
