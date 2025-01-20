@@ -3,10 +3,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseConfigModule } from './mongoose/mongoose.module';
 import { UsersModule } from './users/users.module';
+import { ChatGateway } from './chat/chat.gateway';
+import { MessagesModule } from './messages/messages.module' 
 
 @Module({
-  imports: [MongooseConfigModule, UsersModule],
+  imports: [MongooseConfigModule, UsersModule, MessagesModule], 
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ChatGateway],
 })
 export class AppModule {}
