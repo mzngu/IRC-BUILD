@@ -12,6 +12,6 @@ export class CreateUserDto {
   phoneNumber: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(10)
   password: string;
 }
