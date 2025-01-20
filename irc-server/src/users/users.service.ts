@@ -26,7 +26,8 @@ export class UsersService {
     }
   }
 
-  async findOne(username: string): Promise<User | undefined> {
-    return this.userModel.findOne({ username }).exec();
+  async findOne(username: string): Promise<User | null> {
+    const user = await this.userModel.findOne({ username }).exec();
+    return user;
   }
 }
