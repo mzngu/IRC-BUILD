@@ -13,10 +13,12 @@ export class UsersController {
         try {
             return await this.usersService.createUser(createUserDto);
         } catch (error) {
-            if(error instanceof HttpException){
-                throw error
+            console.error('Error in UsersController create method:', error.message, error.stack);
+    
+            if (error instanceof HttpException) {
+                throw error;
             }
-            throw new HttpException('Error creating user', HttpStatus.INTERNAL_SERVER_ERROR)
+            throw new HttpException('Error creating user', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
     @Get(':username')

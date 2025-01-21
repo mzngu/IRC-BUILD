@@ -10,15 +10,15 @@ export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const { username, email, phoneNumber, password } = createUserDto;
+    const { username, email, password } = createUserDto;
 
     const existingUser = await this.userModel.findOne({
-      $or: [{ username }, { email }, { phoneNumber }],
+      $or: [{ username }, { email },],
     });
 
     if (existingUser) {
       throw new HttpException(
-        'User with this username, email or phone already exists',
+        'User with this username, email  already exists',
         HttpStatus.CONFLICT,
       );
     }
@@ -30,17 +30,17 @@ export class UsersService {
       const createdUser = new this.userModel({
         username,
         email,
-        phoneNumber,
-        passwordHash,
+        password: passwordHash,
       });
 
       return await createdUser.save();
-    } catch (error) {
-      console.error("Error during user creation:", error); 
-      throw new HttpException(
-        'Error creating user',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+    } 
+    catch (error) {
+        console.error('Error saving user:', error.message, error.stack);
+        throw new HttpException(
+          'Error creating user',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
     }
   }
 

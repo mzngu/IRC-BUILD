@@ -31,7 +31,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       const user = await this.usersService.findOne(username);
-      if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      if (!user || !(await bcrypt.compare(password, user.password))) {
           client.disconnect(true);
           throw new WsException('Invalid credentials')
       }
@@ -66,12 +66,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!sender) {
           return
       }
-      const message = await this.messagesService.create(sender._id.toString(), payload.content, payload.room);
+      const message = await this.messagesService.create(sender.toString(), payload.content, payload.room);
       this.server.to(payload.room).emit('message', {
           ...payload,
           sender: {
               username: sender.username,
-              _id: sender._id.toString() 
+              _id: sender.toString() 
           },
           createdAt: message.createdAt
       });
