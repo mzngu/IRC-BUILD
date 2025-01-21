@@ -7,35 +7,56 @@ import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
-    constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-    async createUser(createUserDto: CreateUserDto): Promise<User> {
-        const { username, email, phoneNumber, password } = createUserDto;
+  async createUser(createUserDto: CreateUserDto): Promise<User> {
+    const { username, email, phoneNumber, password } = createUserDto;
 
-        const existingUser = await this.userModel.findOne({ $or: [{ username }, { email }, { phoneNumber }] });
-        if (existingUser) {
-            throw new HttpException('User with this username, email or phone already exists', HttpStatus.CONFLICT);
-        }
+    const existingUser = await this.userModel.findOne({
+      $or: [{ username }, { email }, { phoneNumber }],
+    });
 
-        const passwordHash = await bcrypt.hash(password, 10);
-        const createdUser = new this.userModel({ username, email, phoneNumber, passwordHash });
-        try {
-            return await createdUser.save();
-        } catch (error) {
-            console.error(error)
-            throw new HttpException('Error creating user', HttpStatus.INTERNAL_SERVER_ERROR)
-        }
+    if (existingUser) {
+      throw new HttpException(
+        'User with this username, email or phone already exists',
+        HttpStatus.CONFLICT,
+      );
     }
 
-    async findOne(username: string): Promise<User | null> {
-        const user = await this.userModel.findOne({ username }).exec();
-        return user;
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
+
+      const createdUser = new this.userModel({
+        username,
+        email,
+        phoneNumber,
+        passwordHash,
+      });
+
+      return await createdUser.save();
+    } catch (error) {
+      console.error("Error during user creation:", error); 
+      throw new HttpException(
+        'Error creating user',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
-    async delete(username: string) {
-        try {
-            return await this.userModel.deleteOne({ username }).exec()
-        } catch (error) {
-            throw new HttpException('Error deleting user', HttpStatus.INTERNAL_SERVER_ERROR)
-        }
+  }
+
+  async findOne(username: string): Promise<User | null> {
+    return this.userModel.findOne({ username }).exec();
+  }
+
+  async delete(username: string) {
+    try {
+      return await this.userModel.deleteOne({ username }).exec();
+    } catch (error) {
+      console.error("Error during user deletion:", error); 
+      throw new HttpException(
+        'Error deleting user',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
+  }
 }
