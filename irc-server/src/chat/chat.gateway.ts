@@ -1,79 +1,65 @@
 import {
-  WebSocketGateway,
-  SubscribeMessage,
-  WebSocketServer,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  WsException,
+    WebSocketGateway,
+    WebSocketServer,
+    SubscribeMessage,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    WsException,
 } from '@nestjs/websockets';
-import * as bcrypt from 'bcrypt';
 import { Server, Socket } from 'socket.io';
 import { UsersService } from 'src/users/users.service';
 import { MessagesService } from 'src/messages/messages.service';
 import { Types } from 'mongoose';
+import { UseGuards } from '@nestjs/common';
+import { WsGuard } from 'src/auth/guards/ws.guard';
+import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({ cors: { origin: '*' } })
+@UseGuards(WsGuard) 
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private usersService: UsersService, private messagesService: MessagesService) {}
+    constructor(private usersService: UsersService, private messagesService: MessagesService, private jwtService: JwtService) {}
 
-  @WebSocketServer()
-  server: Server;
+    @WebSocketServer()
+    server: Server;
 
-  private connectedClients: Map<string, {socket: Socket, username: string}> = new Map();
+    private connectedClients: Map<string, {socket: Socket, user: {userId: Types.ObjectId, username: string}}> = new Map();
 
-  async handleConnection(client: Socket) {
-      const username = client.handshake.auth.username;
-      const password = client.handshake.auth.password;
+    handleConnection(client: Socket, user: {userId: Types.ObjectId, username: string}) {
+        console.log(`Client connected: ${client.id} - ${user.username}`);
+        this.connectedClients.set(client.id, {socket: client, user});
+        this.server.emit('userJoined', {userId: client.id, username: user.username});
+    }
 
-      if (!username || !password) {
-          client.disconnect(true);
-          throw new WsException('No credentials provided')
-      }
+    handleDisconnect(client: Socket) {
+        const user = this.connectedClients.get(client.id)
+        console.log(`Client disconnected: ${client.id} - ${user?.user.username}`);
+        this.connectedClients.delete(client.id);
+        this.server.emit('userLeft', {userId: client.id, username: user?.user.username});
 
-      const user = await this.usersService.findOne(username);
-      if (!user || !(await bcrypt.compare(password, user.password))) {
-          client.disconnect(true);
-          throw new WsException('Invalid credentials')
-      }
+    }
 
-      console.log(`Client connected: ${client.id} - ${username}`);
-      this.connectedClients.set(client.id, {socket: client, username});
-      this.server.emit('userJoined', {userId: client.id, username});
-  }
+    @SubscribeMessage('joinRoom')
+    async handleJoinRoom(client: Socket, room: string, user: {userId: Types.ObjectId, username: string}) {
+        client.join(room);
+        const messages = await this.messagesService.findMessagesByRoom(room)
+        client.emit('previousMessages', messages)
+    }
 
-  handleDisconnect(client: Socket) {
-      const user = this.connectedClients.get(client.id)
-      console.log(`Client disconnected: ${client.id} - ${user?.username}`);
-      this.connectedClients.delete(client.id);
-      this.server.emit('userLeft', {userId: client.id, username: user?.username});
+    @SubscribeMessage('message')
+    async handleMessage(client: Socket, payload: { content: string, room: string }, user: {userId: Types.ObjectId, username: string}): Promise<void> {
 
-  }
-
-  @SubscribeMessage('joinRoom')
-  async handleJoinRoom(client: Socket, room: string) {
-      client.join(room);
-      const messages = await this.messagesService.findMessagesByRoom(room)
-      client.emit('previousMessages', messages)
-  }
-
-  @SubscribeMessage('message')
-  async handleMessage(client: Socket, payload: { content: string, room: string }): Promise<void> {
-      const user = this.connectedClients.get(client.id)
-      if (!user) {
-          return
-      }
-      const sender = await this.usersService.findOne(user.username)
-      if (!sender) {
-          return
-      }
-      const message = await this.messagesService.create(sender.toString(), payload.content, payload.room);
-      this.server.to(payload.room).emit('message', {
-          ...payload,
-          sender: {
-              username: sender.username,
-              _id: sender.toString() 
-          },
-          createdAt: message.createdAt
-      });
-  }
+        const sender = await this.usersService.findOne(user.username)
+        if (!sender) {
+            return
+        }
+        const message = await this.messagesService.create(sender._id.toString(), payload.content, payload.room);
+        this.server.to(payload.room).emit('message', {
+            ...payload,
+            sender: {
+                username: sender.username,
+                _id: sender._id
+            },
+            createdAt: message.createdAt
+        }); 
+    }
 }
