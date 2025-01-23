@@ -41,25 +41,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('joinRoom')
     async handleJoinRoom(client: Socket, room: string, user: {userId: Types.ObjectId, username: string}) {
         client.join(room);
-        const messages = await this.messagesService.findMessagesByRoom(room)
-        client.emit('previousMessages', messages)
+        try {
+            const messages = await this.messagesService.findMessagesByRoom(room);
+            client.emit('previousMessages', messages);
+        } catch (error) {
+            console.error("Error fetching previous messages:", error);
+            client.emit('previousMessagesError', 'Could not retrieve message history.');
+        }
     }
 
     @SubscribeMessage('message')
     async handleMessage(client: Socket, payload: { content: string, room: string }, user: {userId: Types.ObjectId, username: string}): Promise<void> {
-
         const sender = await this.usersService.findOne(user.username)
         if (!sender) {
             return
         }
-        const message = await this.messagesService.create(sender._id.toString(), payload.content, payload.room);
-        this.server.to(payload.room).emit('message', {
-            ...payload,
-            sender: {
-                username: sender.username,
-                _id: sender._id
-            },
-            createdAt: message.createdAt
-        }); 
+        try {
+            const message = await this.messagesService.create(sender._id, payload.content, payload.room);
+            this.server.to(payload.room).emit('message', {
+                ...payload,
+                sender: {
+                    username: sender.username,
+                    _id: sender._id.toString()
+                },
+                createdAt: message.createdAt
+            });
+        } catch (error) {
+            console.error("Error saving message:", error);
+            client.emit('messageError', 'Could not send message.');
+        }
     }
 }
