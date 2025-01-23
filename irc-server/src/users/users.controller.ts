@@ -12,6 +12,7 @@ import {
   HttpStatus,
   UnauthorizedException,
   Patch,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -84,6 +85,18 @@ export class UsersController {
         throw error;
       }
       throw new HttpException('Error finding user', HttpStatus.INTERNAL_SERVER_ERROR)
+    }
+  }
+  @Get('search')
+  async searchUsers(@Query('q') query: string): Promise<User[]> {
+    try {
+      return this.usersService.searchUsers(query);
+    } catch (error) {
+      console.error('Error in UsersController search method:', error.message, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException('Error searching user', HttpStatus.INTERNAL_SERVER_ERROR)
     }
   }
 

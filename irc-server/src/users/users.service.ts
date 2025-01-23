@@ -8,7 +8,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const { username, email, password } = createUserDto;
@@ -35,18 +35,30 @@ export class UsersService {
       });
 
       return await createdUser.save();
-    } 
-    catch (error) {
-        console.error('Error saving user:', error.message, error.stack);
-        throw new HttpException(
-          'Error creating user',
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
     }
+    catch (error) {
+      console.error('Error saving user:', error.message, error.stack);
+      throw new HttpException(
+        'Error creating user',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+  async searchUsers(query: string): Promise<User[]> {
+    if (!query || query.trim() === "") {
+      return []
+    }
+    return this.userModel.find({
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+        { phoneNumber: { $regex: query, $options: 'i' } }
+      ]
+    }).exec();
   }
 
   async updateUser(username: string, updateUserDto: UpdateUserDto): Promise<User | null> {
-    return this.userModel.findOneAndUpdate({username: username}, updateUserDto, { new: true }).exec()
+    return this.userModel.findOneAndUpdate({ username: username }, updateUserDto, { new: true }).exec()
   }
 
   async findOne(username: string): Promise<User | null> {
@@ -57,7 +69,7 @@ export class UsersService {
     try {
       return await this.userModel.deleteOne({ username }).exec();
     } catch (error) {
-      console.error("Error during user deletion:", error); 
+      console.error("Error during user deletion:", error);
       throw new HttpException(
         'Error deleting user',
         HttpStatus.INTERNAL_SERVER_ERROR,
