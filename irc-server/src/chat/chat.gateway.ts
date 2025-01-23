@@ -15,10 +15,12 @@ import { WsGuard } from 'src/auth/guards/ws.guard';
 import { JwtService } from '@nestjs/jwt';
 import { sanitize } from 'src/utils/sanitize';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { ChannelsService } from 'src/channels/channels.service';
+
 @WebSocketGateway({ cors: { origin: '*' } })
 @UseGuards(WsGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-    constructor(private usersService: UsersService, private messagesService: MessagesService, private jwtService: JwtService) { }
+    constructor(private usersService: UsersService, private messagesService: MessagesService, private jwtService: JwtService, private channelsService: ChannelsService) { }
 
     @WebSocketServer()
     server: Server;
@@ -122,6 +124,113 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         } catch (error) {
             console.error("Error deleting message:", error);
             client.emit('messageDeleteError', 'Could not delete the message.');
+        }
+    }
+    @SubscribeMessage('list')
+    async handleListChannels(client: Socket, query?: string) {
+        try {
+            const channels = await this.channelsService.findAll(query);
+            client.emit('channelList', channels);
+        } catch (error) {
+            console.error("Error listing channels:", error);
+            client.emit('channelListError', 'Could not retrieve channel list.');
+        }
+    }
+    @SubscribeMessage('create')
+    async handleCreateChannel(client: Socket, channelName: string) {
+        try {
+            const channel = await this.channelsService.create(channelName);
+            this.server.emit('channelCreated', channel);
+        } catch (error) {
+            console.error("Error creating channel:", error);
+            client.emit('channelCreateError', 'Could not create channel.');
+        }
+    }
+    @SubscribeMessage('delete')
+    async handleDeleteChannel(client: Socket, channelName: string) {
+        try {
+            await this.channelsService.delete(channelName);
+            this.server.emit('channelDeleted', channelName);
+        } catch (error) {
+            console.error("Error deleting channel:", error);
+            client.emit('channelDeleteError', 'Could not delete channel.');
+        }
+    }
+    @SubscribeMessage('join')
+    async handleJoinChannel(client: Socket, channelName: string, user: {userId: Types.ObjectId, username: string}) {
+        try {
+            const channel = await this.channelsService.findOne(channelName)
+            if (!channel) {
+                client.emit('joinError', 'Channel not found')
+                return
+            }
+            await this.channelsService.addUserToChannel(channelName, user.userId)
+            client.join(channelName)
+            client.emit('joinSuccess', channel)
+            this.server.to(channelName).emit('userJoinedChannel', {username: user.username})
+        } catch (error) {
+            console.error("Error joining channel:", error);
+            client.emit('joinError', 'Could not join channel.');
+        }
+    }
+    @SubscribeMessage('quit')
+    async handleQuitChannel(client: Socket, channelName: string, user: {userId: Types.ObjectId, username: string}) {
+        try {
+            const channel = await this.channelsService.findOne(channelName)
+            if (!channel) {
+                client.emit('quitError', 'Channel not found')
+                return
+            }
+            await this.channelsService.removeUserFromChannel(channelName, user.userId)
+            client.leave(channelName)
+            client.emit('quitSuccess', channel)
+            this.server.to(channelName).emit('userLeftChannel', {username: user.username})
+
+        } catch (error) {
+            console.error("Error quitting channel:", error);
+            client.emit('quitError', 'Could not quit channel.');
+        }
+    }
+    @SubscribeMessage('users')
+    async handleListUsersInChannel(client: Socket, channelName: string) {
+        try {
+            const channel = await this.channelsService.findOne(channelName)
+            if (!channel) {
+                client.emit('usersError', 'Channel not found')
+                return
+            }
+            client.emit('usersList', channel.users)
+        } catch (error) {
+            console.error("Error listing users in channel:", error);
+            client.emit('usersError', 'Could not retrieve users list.');
+        }
+    }
+    @SubscribeMessage('nick')
+    async handleNickChange(client: Socket, newNickname: string, user: {userId: Types.ObjectId, username: string}) {
+        try {
+            const existingUserWithNickname = await this.usersService.findOne(newNickname)
+            if (existingUserWithNickname && existingUserWithNickname._id.toString() !== user.userId.toString()) {
+                client.emit('nickError', 'Nickname already taken.');
+                return;
+            }
+            const updatedUser = await this.usersService.updateNickname(user.username, newNickname);
+            if (!updatedUser) {
+                client.emit('nickError', 'Could not update nickname.');
+                return;
+            }
+
+            user.username = newNickname
+
+            for (const room of client.rooms) {
+                if (room !== client.id) { 
+                    this.server.to(room).emit('userNickChanged', { oldNickname: user.username, newNickname });
+                }
+            }
+
+            client.emit('nickSuccess', newNickname);
+        } catch (error) {
+            console.error('Error changing nickname:', error);
+            client.emit('nickError', 'Could not change nickname.');
         }
     }
 }

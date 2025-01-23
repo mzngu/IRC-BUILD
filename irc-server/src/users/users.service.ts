@@ -76,4 +76,8 @@ export class UsersService {
       );
     }
   }
+
+  async updateNickname(username: string, newNickname: string): Promise<User | null> {
+    return this.userModel.findOneAndUpdate({ username }, { username: newNickname }, { new: true }).exec();
+  }
 }
