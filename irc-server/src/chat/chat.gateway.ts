@@ -1,7 +1,7 @@
 import {
     WebSocketGateway,
-    WebSocketServer,
     SubscribeMessage,
+    WebSocketServer,
     OnGatewayConnection,
     OnGatewayDisconnect,
     WsException,
@@ -10,10 +10,11 @@ import { Server, Socket } from 'socket.io';
 import { UsersService } from 'src/users/users.service';
 import { MessagesService } from 'src/messages/messages.service';
 import { Types } from 'mongoose';
-import { UseGuards } from '@nestjs/common';
+import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common'; // Correct import
 import { WsGuard } from 'src/auth/guards/ws.guard';
 import { JwtService } from '@nestjs/jwt';
-
+import { sanitize } from 'src/utils/sanitize';
+import { CreateMessageDto } from './dto/create-message.dto';
 @WebSocketGateway({ cors: { origin: '*' } })
 @UseGuards(WsGuard) 
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -51,15 +52,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('message')
-    async handleMessage(client: Socket, payload: { content: string, room: string }, user: {userId: Types.ObjectId, username: string}): Promise<void> {
+    @UsePipes(new ValidationPipe())
+    async handleMessage(client: Socket, createMessageDto: CreateMessageDto, user: {userId: Types.ObjectId, username: string}): Promise<void> {
         const sender = await this.usersService.findOne(user.username)
         if (!sender) {
             return
         }
         try {
-            const message = await this.messagesService.create(sender._id, payload.content, payload.room);
-            this.server.to(payload.room).emit('message', {
-                ...payload,
+            const sanitizedContent = sanitize(createMessageDto.content);
+            const message = await this.messagesService.create(sender._id, sanitizedContent, createMessageDto.room);
+            this.server.to(createMessageDto.room).emit('message', {
+                content: sanitizedContent,
+                room: createMessageDto.room,
                 sender: {
                     username: sender.username,
                     _id: sender._id.toString()
@@ -72,3 +76,4 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
 }
+
