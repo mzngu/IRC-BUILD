@@ -8,8 +8,14 @@ export class Message {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   sender: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  recipient?: Types.ObjectId;
+
   @Prop({ required: true })
   content: string;
+
+  @Prop({ default: false })
+  edited: boolean;
 
   @Prop({ required: true })
   room: string;
@@ -17,7 +23,7 @@ export class Message {
   @Prop()
   createdAt: Date;
 
-  @Prop() 
+  @Prop()
   updatedAt: Date;
 }
 

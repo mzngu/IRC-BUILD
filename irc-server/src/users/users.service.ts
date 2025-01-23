@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -42,6 +43,10 @@ export class UsersService {
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
     }
+  }
+
+  async updateUser(username: string, updateUserDto: UpdateUserDto): Promise<User | null> {
+    return this.userModel.findOneAndUpdate({username: username}, updateUserDto, { new: true }).exec()
   }
 
   async findOne(username: string): Promise<User | null> {
