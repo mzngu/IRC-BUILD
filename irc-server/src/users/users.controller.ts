@@ -6,8 +6,8 @@ import {
   NotFoundException,
   Delete,
   Body,
-  ValidationPipe,
-  UsePipes,
+  //ValidationPipe,
+  //UsePipes,
   HttpException,
   HttpStatus,
   UnauthorizedException,
@@ -30,12 +30,12 @@ export class UsersController {
   ) { }
 
   @Post()
-  @UsePipes(new ValidationPipe())
+  //@UsePipes(new ValidationPipe())
   async create(@Body() createUserDto: CreateUserDto): Promise<User> {
     try {
       return await this.usersService.createUser(createUserDto);
     } catch (error) {
-      console.error('Error in UsersController create method:', error.message, error.stack);
+      console.error('Error in UsersController create method:', error);
 
       if (error instanceof HttpException) {
         throw error;
@@ -58,7 +58,10 @@ export class UsersController {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      const payload = { username: user.username, sub: user._id };
+      const payload: { username: string; sub: string } = {
+        username: user.username,
+        sub: user._id.toString(),
+      };
       return {
         access_token: await this.jwtService.signAsync(payload),
       };

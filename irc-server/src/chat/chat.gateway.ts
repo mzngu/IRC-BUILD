@@ -79,7 +79,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('privateMessage')
-    async handlePrivateMessage(client: Socket, payload: { content: string, recipientUsername: string }, user: { userId: Types.ObjectId, username: string }) {
+    async handlePrivateMessage(client: Socket, payload: { content: string, recipientUsername: string }, user: {userId: Types.ObjectId, username: string}) {
         const sender = await this.usersService.findOne(user.username);
         const recipient = await this.usersService.findOne(payload.recipientUsername);
 
@@ -90,8 +90,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         try {
             const message = await this.messagesService.create(sender._id, payload.content, undefined, recipient._id);
-            client.emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id }, createdAt: message.createdAt });
-            this.server.to(recipient._id.toString()).emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id }, createdAt: message.createdAt });
+            client.emit('privateMessage', { ...payload, sender: {username: sender.username, _id: sender._id.toString()}, createdAt: message.createdAt });
+            this.server.to(recipient._id.toString()).emit('privateMessage', { ...payload, sender: {username: sender.username, _id: sender._id.toString()}, createdAt: message.createdAt });
+
         } catch (error) {
             console.error('Error sending private message:', error);
             client.emit('privateMessageError', 'Could not send private message.');
@@ -199,7 +200,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 client.emit('usersError', 'Channel not found')
                 return
             }
-            client.emit('usersList', channel.users)
+            client.emit('usersList', channel.users.map(user => user.toString()))
         } catch (error) {
             console.error("Error listing users in channel:", error);
             client.emit('usersError', 'Could not retrieve users list.');
@@ -222,7 +223,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             user.username = newNickname
 
             for (const room of client.rooms) {
-                if (room !== client.id) { 
+                if (room !== client.id) {
                     this.server.to(room).emit('userNickChanged', { oldNickname: user.username, newNickname });
                 }
             }

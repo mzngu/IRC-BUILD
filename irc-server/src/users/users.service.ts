@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
@@ -14,12 +15,12 @@ export class UsersService {
     const { username, email, password } = createUserDto;
 
     const existingUser = await this.userModel.findOne({
-      $or: [{ username }, { email },],
+      $or: [{ username }, { email }],
     });
 
     if (existingUser) {
       throw new HttpException(
-        'User with this username, email  already exists',
+        'User with this username or email already exists',
         HttpStatus.CONFLICT,
       );
     }
@@ -28,15 +29,10 @@ export class UsersService {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
-      const createdUser = new this.userModel({
-        username,
-        email,
-        password: passwordHash,
-      });
+      const createdUser = await this.userModel.create({ username, email, passwordHash });
 
-      return await createdUser.save();
-    }
-    catch (error) {
+      return createdUser;
+    } catch (error) {
       console.error('Error saving user:', error.message, error.stack);
       throw new HttpException(
         'Error creating user',
@@ -44,6 +40,7 @@ export class UsersService {
       );
     }
   }
+
   async searchUsers(query: string): Promise<User[]> {
     if (!query || query.trim() === "") {
       return []
@@ -52,20 +49,20 @@ export class UsersService {
       $or: [
         { username: { $regex: query, $options: 'i' } },
         { email: { $regex: query, $options: 'i' } },
-        { phoneNumber: { $regex: query, $options: 'i' } }
       ]
     }).exec();
   }
 
   async updateUser(username: string, updateUserDto: UpdateUserDto): Promise<User | null> {
-    return this.userModel.findOneAndUpdate({ username: username }, updateUserDto, { new: true }).exec()
+    const filter = { username: username }; 
+    return this.userModel.findOneAndUpdate(filter, updateUserDto, { new: true }).exec();
   }
 
   async findOne(username: string): Promise<User | null> {
     return this.userModel.findOne({ username }).exec();
   }
 
-  async delete(username: string) {
+  async delete(username: string): Promise<{ deletedCount: number }> {
     try {
       return await this.userModel.deleteOne({ username }).exec();
     } catch (error) {
@@ -78,6 +75,7 @@ export class UsersService {
   }
 
   async updateNickname(username: string, newNickname: string): Promise<User | null> {
-    return this.userModel.findOneAndUpdate({ username }, { username: newNickname }, { new: true }).exec();
+    const filter = { username: username }; 
+    return this.userModel.findOneAndUpdate(filter, { username: newNickname }, { new: true }).exec();
   }
 }
