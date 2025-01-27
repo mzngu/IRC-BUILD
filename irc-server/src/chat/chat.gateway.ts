@@ -20,7 +20,12 @@ import { ChannelsService } from 'src/channels/channels.service';
 @WebSocketGateway({ cors: { origin: '*' } })
 @UseGuards(WsGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-    constructor(private usersService: UsersService, private messagesService: MessagesService, private jwtService: JwtService, private channelsService: ChannelsService) { }
+  constructor(
+    private usersService: UsersService,
+    private messagesService: MessagesService,
+    private jwtService: JwtService,
+    private channelsService: ChannelsService,
+  ) {}
 
     @WebSocketServer()
     server: Server;
@@ -55,27 +60,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     @SubscribeMessage('message')
     @UsePipes(new ValidationPipe())
-    async handleMessage(client: Socket, createMessageDto: CreateMessageDto, user: { userId: Types.ObjectId, username: string }): Promise<void> {
-        const sender = await this.usersService.findOne(user.username)
-        if (!sender) {
-            return
-        }
-        try {
-            const sanitizedContent = sanitize(createMessageDto.content);
-            const message = await this.messagesService.create(sender._id, sanitizedContent, createMessageDto.room);
-            this.server.to(createMessageDto.room).emit('message', {
-                content: sanitizedContent,
-                room: createMessageDto.room,
-                sender: {
-                    username: sender.username,
-                    _id: sender._id.toString()
-                },
-                createdAt: message.createdAt
-            });
-        } catch (error) {
-            console.error("Error saving message:", error);
-            client.emit('messageError', 'Could not send message.');
-        }
+    async handleMessage(client: Socket, createMessageDto: CreateMessageDto, user: { userId: Types.ObjectId; username: string }): Promise<void> {
+      const sender = await this.usersService.findOne(user.username);
+      if (!sender) {
+        client.emit('messageError', 'Sender not found.'); 
+        return;
+      }
+  
+      try {
+        const sanitizedContent = sanitize(createMessageDto.content);
+        const message = await this.messagesService.create(sender._id, sanitizedContent, createMessageDto.room);
+        this.server.to(createMessageDto.room).emit('message', {
+          content: sanitizedContent,
+          room: createMessageDto.room,
+          sender: { username: sender.username, _id: sender._id.toString() },
+          createdAt: message.createdAt,
+        });
+      } catch (error) {
+        console.error('Error saving message:', error);
+        client.emit('messageError', 'Could not send message.'); 
+      }
     }
 
     @SubscribeMessage('privateMessage')

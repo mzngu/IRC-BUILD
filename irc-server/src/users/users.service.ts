@@ -32,7 +32,7 @@ export class UsersService {
       const passwordHash = await bcrypt.hash(password, salt);
 
       const createdUser = await this.userModel.create({
-        _id: uuidv4(), // Generate a unique ID for the user
+        _id: uuidv4(),
         username,
         email,
         passwordHash,
