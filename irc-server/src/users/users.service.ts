@@ -8,9 +8,11 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 
 
-
 @Injectable()
 export class UsersService {
+  create(createUserDto: CreateUserDto) {
+      throw new Error('Method not implemented.');
+  }
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {

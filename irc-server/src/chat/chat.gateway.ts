@@ -32,11 +32,26 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     private connectedClients: Map<string, { socket: Socket, user: { userId: Types.ObjectId, username: string } }> = new Map();
 
-    handleConnection(client: Socket, user: { userId: Types.ObjectId, username: string }) {
-        console.log(`Client connected: ${client.id} - ${user.username}`);
-        this.connectedClients.set(client.id, { socket: client, user });
-        this.server.emit('userJoined', { userId: client.id, username: user.username });
-    }
+    async handleConnection(client: Socket) {
+        try {
+          const token = client.handshake.auth.token;
+          console.log('Received token:', token); // Log the received token
+    
+          const decoded = this.jwtService.verify(token);
+    
+          if (!decoded || typeof decoded !== 'object' || !decoded.username) {
+            throw new Error('Invalid token');
+          }
+    
+          const user = { userId: decoded.userId, username: decoded.username };
+          console.log(`Client connected: ${client.id} - ${user.username}`);
+          this.connectedClients.set(client.id, { socket: client, user });
+          this.server.emit('userJoined', { userId: client.id, username: user.username });
+        } catch (err) {
+          console.error('Connection error:', err);
+          client.disconnect();
+        }
+      }
 
     handleDisconnect(client: Socket) {
         const user = this.connectedClients.get(client.id)

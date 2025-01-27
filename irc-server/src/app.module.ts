@@ -7,6 +7,7 @@ import { MessagesModule } from './messages/messages.module';
 import { AuthModule } from './auth/auth.module';
 import { ChannelsModule } from './channels/channels.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -15,6 +16,10 @@ import { MongooseModule } from '@nestjs/mongoose';
     MessagesModule,
     AuthModule,
     ChannelsModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'your_secret_key', 
+      signOptions: { expiresIn: '1h' },
+    }),
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],
