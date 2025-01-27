@@ -5,6 +5,8 @@ import { User, UserDocument } from './schemas/user.schema';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { v4 as uuidv4 } from 'uuid';
+
 
 
 @Injectable()
@@ -29,7 +31,12 @@ export class UsersService {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(password, salt);
 
-      const createdUser = await this.userModel.create({ username, email, passwordHash });
+      const createdUser = await this.userModel.create({
+        _id: uuidv4(), // Generate a unique ID for the user
+        username,
+        email,
+        passwordHash,
+      });
 
       return createdUser;
     } catch (error) {
@@ -40,6 +47,7 @@ export class UsersService {
       );
     }
   }
+
 
   async searchUsers(query: string): Promise<User[]> {
     if (!query || query.trim() === "") {

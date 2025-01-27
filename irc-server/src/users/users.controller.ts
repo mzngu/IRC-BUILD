@@ -21,28 +21,30 @@ import { LoginUserDto } from './dto/login-user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UUID } from 'mongodb';
 
 @Controller('users')
 export class UsersController {
+  userModel: any;
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
   ) { }
 
   @Post()
-  //@UsePipes(new ValidationPipe())
   async create(@Body() createUserDto: CreateUserDto): Promise<User> {
     try {
       return await this.usersService.createUser(createUserDto);
     } catch (error) {
       console.error('Error in UsersController create method:', error);
-
+  
       if (error instanceof HttpException) {
         throw error;
       }
       throw new HttpException('Error creating user', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
 
   @Post('login')
   async login(@Body() loginUserDto: LoginUserDto) {
@@ -135,4 +137,8 @@ export class UsersController {
       throw new HttpException('Error updating user', HttpStatus.INTERNAL_SERVER_ERROR)
     }
   }
+}
+
+function uuidv4() {
+  throw new Error('Function not implemented.');
 }
