@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/schemas/user.schema';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { LoginUserDto } from '../users/dto/login-user.dto';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -12,29 +12,29 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateUser(username: string, pass: string): Promise<any> {
-    const user = await this.usersService.findOne(username);
-    if (user && await bcrypt.compare(pass, user.passwordHash)) {
-      const { passwordHash, ...result } = user;
-      return result;
+  async register(createUserDto: CreateUserDto) {
+      try {
+          return await this.usersService.createUser(createUserDto)
+      } catch (error) {
+          throw error
+      }
+  }
+
+  async login(loginUserDto: LoginUserDto) {
+    const user = await this.usersService.findOne(loginUserDto.username);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
-    return null;
-  }
 
-  async login(user: any) {
-    const payload = { username: user.username, sub: user.userId };
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
-  }
+    const isMatch = await bcrypt.compare(loginUserDto.password, user.passwordHash);
 
-  async signup(createUserDto: CreateUserDto): Promise<any> {
-    const user = await this.usersService.createUser(createUserDto);
-    const payload = { username: user.username, sub: user._id };
-    const token = this.jwtService.sign(payload);
-    console.log('Generated JWT:', token); 
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = { username: user.username, sub: user._id.toString() };
     return {
-      access_token: token,
+      access_token: await this.jwtService.signAsync(payload),
     };
   }
 }
