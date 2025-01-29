@@ -1,30 +1,24 @@
-import { Controller, Post, Body, ValidationPipe, UsePipes, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, ValidationPipe, UsePipes, HttpCode, HttpStatus, UseFilters } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginUserDto } from '../users/dto/login-user.dto';
-import { CreateUserDto } from '../users/dto/create-user.dto'; 
+import { CreateUserDto } from '../users/dto/create-user.dto';
+import { HttpExceptionFilter } from '../exception-filters/http-exception.filter'; 
 
 @Controller('auth')
+@UseFilters(HttpExceptionFilter) 
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
   @UsePipes(new ValidationPipe())
   async register(@Body() createUserDto: CreateUserDto) {
-    try {
-      return await this.authService.register(createUserDto);
-    } catch (error) {
-        throw error
-    }
+    return this.authService.register(createUserDto); 
   }
 
   @Post('login')
-  @HttpCode(HttpStatus.OK) 
+  @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe())
   async login(@Body() loginUserDto: LoginUserDto) {
-      try {
-          return await this.authService.login(loginUserDto)
-      } catch (error) {
-          throw error
-      }
+    return this.authService.login(loginUserDto);
   }
 }

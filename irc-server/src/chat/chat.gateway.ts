@@ -11,58 +11,76 @@ import { UsersService } from 'src/users/users.service';
 import { MessagesService } from 'src/messages/messages.service';
 import { Types } from 'mongoose';
 import { UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
-import { WsGuard } from 'src/auth/guards/ws.guard';
-import { JwtService } from '@nestjs/jwt';
+import { WsJwtGuard } from './guards/ws-jwt.guard';
 import { sanitize } from 'src/utils/sanitize';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { ChannelsService } from 'src/channels/channels.service';
+import { AuthService } from 'src/auth/auth.service';
+import { Message } from './interfaces/message.interface';
+
+interface ConnectedUser { 
+    userId: Types.ObjectId;
+    username: string;
+  }
 
 @WebSocketGateway({ cors: { origin: '*' } })
-@UseGuards(WsGuard)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(
-    private usersService: UsersService,
-    private messagesService: MessagesService,
-    private jwtService: JwtService,
-    private channelsService: ChannelsService,
-  ) {}
+    constructor(
+        private usersService: UsersService,
+        private messagesService: MessagesService,
+        private channelsService: ChannelsService,
+        private authService: AuthService,
+    ) { }
 
     @WebSocketServer()
     server: Server;
 
-    private connectedClients: Map<string, { socket: Socket, user: { userId: Types.ObjectId, username: string } }> = new Map();
+    private connectedClients: Map<string, { socket: Socket; user: ConnectedUser }> = new Map();
 
     async handleConnection(client: Socket) {
-        try {
-          const token = client.handshake.auth.token;
-          console.log('Received token:', token); // Log the received token
-    
-          const decoded = this.jwtService.verify(token);
-    
-          if (!decoded || typeof decoded !== 'object' || !decoded.username) {
-            throw new Error('Invalid token');
-          }
-    
-          const user = { userId: decoded.userId, username: decoded.username };
-          console.log(`Client connected: ${client.id} - ${user.username}`);
-          this.connectedClients.set(client.id, { socket: client, user });
-          this.server.emit('userJoined', { userId: client.id, username: user.username });
-        } catch (err) {
-          console.error('Connection error:', err);
-          client.disconnect();
+        const token = client.handshake.auth.token;
+
+        if (!token) {
+            client.disconnect(true);
+            return;
         }
-      }
+
+        try {
+            const payload = await this.authService.verifyToken(token);
+            const userDocument = await this.usersService.findById(payload.sub);
+            if (!userDocument) {
+                client.disconnect(true);
+                return;
+            }
+
+            const user: ConnectedUser = {  
+                userId: userDocument._id,
+                username: userDocument.username,
+              };
+
+            this.connectedClients.set(client.id, { socket: client, user });
+            client.data.user = user;
+            console.log(`Client connected: ${client.id} - ${user.username}`);
+            this.server.emit('userJoined', { userId: client.id, username: user.username });
+        } catch (error) {
+            console.error('Connection error:', error);
+            client.disconnect(true);
+        }
+    }
 
     handleDisconnect(client: Socket) {
-        const user = this.connectedClients.get(client.id)
-        console.log(`Client disconnected: ${client.id} - ${user?.user.username}`);
-        this.connectedClients.delete(client.id);
-        this.server.emit('userLeft', { userId: client.id, username: user?.user.username });
-
+        const user = this.connectedClients.get(client.id)?.user;
+        if (user) {
+            console.log(`Client disconnected: ${client.id} - ${user.username}`);
+            this.connectedClients.delete(client.id);
+            this.server.emit('userLeft', { userId: client.id, username: user.username });
+        }
     }
 
     @SubscribeMessage('joinRoom')
-    async handleJoinRoom(client: Socket, room: string, user: { userId: Types.ObjectId, username: string }) {
+    @UseGuards(WsJwtGuard)
+    async handleJoinRoom(client: Socket, room: string) {
+        const user = client.data.user;
         client.join(room);
         try {
             const messages = await this.messagesService.findMessagesByRoom(room);
@@ -74,31 +92,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('message')
+    @UseGuards(WsJwtGuard)
     @UsePipes(new ValidationPipe())
-    async handleMessage(client: Socket, createMessageDto: CreateMessageDto, user: { userId: Types.ObjectId; username: string }): Promise<void> {
-      const sender = await this.usersService.findOne(user.username);
-      if (!sender) {
-        client.emit('messageError', 'Sender not found.'); 
-        return;
-      }
-  
-      try {
-        const sanitizedContent = sanitize(createMessageDto.content);
-        const message = await this.messagesService.create(sender._id, sanitizedContent, createMessageDto.room);
-        this.server.to(createMessageDto.room).emit('message', {
-          content: sanitizedContent,
-          room: createMessageDto.room,
-          sender: { username: sender.username, _id: sender._id.toString() },
-          createdAt: message.createdAt,
-        });
-      } catch (error) {
-        console.error('Error saving message:', error);
-        client.emit('messageError', 'Could not send message.'); 
-      }
+    async handleMessage(client: Socket, createMessageDto: CreateMessageDto): Promise<void> { 
+        const user = client.data.user; 
+        const sender = await this.usersService.findOne(user.username); 
+
+        if (!sender) {
+            client.emit('messageError', 'Sender not found.');
+            return;
+        }
+
+        try {
+            const sanitizedContent = sanitize(createMessageDto.content);
+            const message = await this.messagesService.create(sender._id, sanitizedContent, createMessageDto.room);
+            this.server.to(createMessageDto.room).emit('message', {
+                content: sanitizedContent,
+                room: createMessageDto.room,
+                sender: { username: sender.username, _id: sender._id.toString() },
+                createdAt: message.createdAt,
+            });
+        } catch (error) {
+            console.error('Error saving message:', error);
+            client.emit('messageError', 'Could not send message.');
+        }
     }
 
     @SubscribeMessage('privateMessage')
-    async handlePrivateMessage(client: Socket, payload: { content: string, recipientUsername: string }, user: {userId: Types.ObjectId, username: string}) {
+    @UseGuards(WsJwtGuard)
+    async handlePrivateMessage(client: Socket, payload: { content: string, recipientUsername: string }) { 
+        const user = client.data.user; 
         const sender = await this.usersService.findOne(user.username);
         const recipient = await this.usersService.findOne(payload.recipientUsername);
 
@@ -109,8 +132,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         try {
             const message = await this.messagesService.create(sender._id, payload.content, undefined, recipient._id);
-            client.emit('privateMessage', { ...payload, sender: {username: sender.username, _id: sender._id.toString()}, createdAt: message.createdAt });
-            this.server.to(recipient._id.toString()).emit('privateMessage', { ...payload, sender: {username: sender.username, _id: sender._id.toString()}, createdAt: message.createdAt });
+            client.emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id.toString() }, createdAt: message.createdAt });
+            this.server.to(recipient._id.toString()).emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id.toString() }, createdAt: message.createdAt });
 
         } catch (error) {
             console.error('Error sending private message:', error);
@@ -119,11 +142,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('typing')
-    handleTyping(client: Socket, data: { room: string, isTyping: boolean }, user: { userId: Types.ObjectId, username: string }) {
+    @UseGuards(WsJwtGuard)
+    handleTyping(client: Socket, data: { room: string, isTyping: boolean }) {
+        const user = client.data.user; 
         client.to(data.room).emit('typing', { username: user.username, isTyping: data.isTyping });
     }
     @SubscribeMessage('editMessage')
-    async handleEditMessage(client: Socket, payload: { messageId: string, content: string }, user: { userId: Types.ObjectId, username: string }) {
+    @UseGuards(WsJwtGuard)
+    async handleEditMessage(client: Socket, payload: { messageId: string, content: string }) {
+        const user = client.data.user;
         try {
             const updatedMessage = await this.messagesService.update(payload.messageId, payload.content);
             if (updatedMessage) {
@@ -135,7 +162,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('deleteMessage')
-    async handleDeleteMessage(client: Socket, messageId: string, user: { userId: Types.ObjectId, username: string }) {
+    @UseGuards(WsJwtGuard)
+    async handleDeleteMessage(client: Socket, messageId: string) { 
         try {
             const result = await this.messagesService.delete(messageId);
             if (result.deletedCount) {
@@ -147,6 +175,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('list')
+    @UseGuards(WsJwtGuard)
     async handleListChannels(client: Socket, query?: string) {
         try {
             const channels = await this.channelsService.findAll(query);
@@ -157,6 +186,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('create')
+    @UseGuards(WsJwtGuard)
     async handleCreateChannel(client: Socket, channelName: string) {
         try {
             const channel = await this.channelsService.create(channelName);
@@ -167,6 +197,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('delete')
+    @UseGuards(WsJwtGuard)
     async handleDeleteChannel(client: Socket, channelName: string) {
         try {
             await this.channelsService.delete(channelName);
@@ -177,7 +208,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('join')
-    async handleJoinChannel(client: Socket, channelName: string, user: {userId: Types.ObjectId, username: string}) {
+    @UseGuards(WsJwtGuard)
+    async handleJoinChannel(client: Socket, channelName: string, user: { userId: Types.ObjectId, username: string }) {
         try {
             const channel = await this.channelsService.findOne(channelName)
             if (!channel) {
@@ -187,14 +219,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             await this.channelsService.addUserToChannel(channelName, user.userId)
             client.join(channelName)
             client.emit('joinSuccess', channel)
-            this.server.to(channelName).emit('userJoinedChannel', {username: user.username})
+            this.server.to(channelName).emit('userJoinedChannel', { username: user.username })
         } catch (error) {
             console.error("Error joining channel:", error);
             client.emit('joinError', 'Could not join channel.');
         }
     }
     @SubscribeMessage('quit')
-    async handleQuitChannel(client: Socket, channelName: string, user: {userId: Types.ObjectId, username: string}) {
+    @UseGuards(WsJwtGuard)
+    async handleQuitChannel(client: Socket, channelName: string, user: { userId: Types.ObjectId, username: string }) {
         try {
             const channel = await this.channelsService.findOne(channelName)
             if (!channel) {
@@ -204,7 +237,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             await this.channelsService.removeUserFromChannel(channelName, user.userId)
             client.leave(channelName)
             client.emit('quitSuccess', channel)
-            this.server.to(channelName).emit('userLeftChannel', {username: user.username})
+            this.server.to(channelName).emit('userLeftChannel', { username: user.username })
 
         } catch (error) {
             console.error("Error quitting channel:", error);
@@ -212,6 +245,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('users')
+    @UseGuards(WsJwtGuard)
     async handleListUsersInChannel(client: Socket, channelName: string) {
         try {
             const channel = await this.channelsService.findOne(channelName)
@@ -226,7 +260,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
     @SubscribeMessage('nick')
-    async handleNickChange(client: Socket, newNickname: string, user: {userId: Types.ObjectId, username: string}) {
+    async handleNickChange(client: Socket, newNickname: string, user: { userId: Types.ObjectId, username: string }) {
         try {
             const existingUserWithNickname = await this.usersService.findOne(newNickname)
             if (existingUserWithNickname && existingUserWithNickname._id.toString() !== user.userId.toString()) {
