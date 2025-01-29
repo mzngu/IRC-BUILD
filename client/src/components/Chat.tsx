@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 
 interface Message {
     content: string;
-    sender: string;
+    sender: { username: string; _id: string };
 }
 
 const Chat: React.FC = () => {
@@ -74,7 +74,7 @@ const Chat: React.FC = () => {
             <div className="flex-1 overflow-y-auto mb-4">
                 {messages.map((msg, index) => (
                     <div key={index} className="mb-2">
-                        <span className="font-bold">{msg.sender}:</span> {msg.content}
+                        <span className="font-bold">{msg.sender.username}:</span> {msg.content}
                     </div>
                 ))}
             </div>
