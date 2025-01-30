@@ -10,8 +10,8 @@ const Chat: React.FC = () => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [message, setMessage] = useState('');
-    const [room, setRoom] = useState('general'); // Initialize to 'general'
-    const [rooms, setRooms] = useState<string[]>(['general', 'tech', 'random']); // Available rooms
+    const [room, setRoom] = useState('general'); 
+    const [rooms, setRooms] = useState<string[]>(['general', 'tech', 'random']); 
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -27,7 +27,7 @@ const Chat: React.FC = () => {
 
         setSocket(newSocket);
 
-        // Join the current room (important!)
+        
         newSocket.emit('joinRoom', room);
 
         newSocket.on('message', (msg: Message) => {
@@ -35,11 +35,11 @@ const Chat: React.FC = () => {
         });
 
         return () => {
-            if (newSocket) { // Check if socket exists before disconnecting
+            if (newSocket) { 
                 newSocket.disconnect();
             }
         };
-    }, [room]); // Add 'room' to the dependency array
+    }, [room]); 
 
     const sendMessage = () => {
         if (socket && message) {
@@ -49,8 +49,8 @@ const Chat: React.FC = () => {
     };
 
     const switchRoom = (newRoom: string) => {
-      setRoom(newRoom); // Update the room state, which triggers the useEffect
-      setMessages([]); // Clear messages when switching rooms (Optional, but good UX)
+      setRoom(newRoom); 
+      setMessages([]); 
     };
 
     return (
@@ -62,7 +62,7 @@ const Chat: React.FC = () => {
               <select
                 id="roomSelect"
                 value={room}
-                onChange={(e) => switchRoom(e.target.value)} // Call switchRoom
+                onChange={(e) => switchRoom(e.target.value)} 
                 className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               >
                 {rooms.map((r) => (
