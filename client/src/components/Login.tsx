@@ -5,39 +5,39 @@ import { useNavigate } from 'react-router-dom';
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(''); // State for error message
+  const [error, setError] = useState(''); 
   const navigate = useNavigate();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(''); // Clear previous errors
+    setError(''); 
 
     try {
-      const response = await axios.post('http://localhost:3000/auth/login', { // Correct endpoint
+      const response = await axios.post('http://localhost:3000/auth/login', { 
         username,
         password,
       });
 
       console.log("Login Response:", response);
 
-      if (response.status !== 200) { // Check for 200 OK
+      if (response.status !== 200) { 
         const errorData = response.data;
         console.error("Login Error:", errorData);
-        setError(errorData.message || "Login failed"); // Set the error message
+        setError(errorData.message || "Login failed"); 
         return;
       }
 
-      localStorage.setItem('token', response.data.access_token); // Correct property name
+      localStorage.setItem('token', response.data.access_token); 
       alert('Login successful');
-      navigate('/chat'); // Redirect to chat page
+      navigate('/chat'); 
 
     } catch (error) {
       console.error("Login Error (Catch):", error);
       if (axios.isAxiosError(error)) {
         console.error("Axios Error Details:", error.response?.data);
-        setError(error.response?.data?.message || "Login failed"); // More specific error
+        setError(error.response?.data?.message || "Login failed"); 
       } else {
-        setError("Login failed"); // Generic error
+        setError("Login failed"); 
       }
     }
   };
