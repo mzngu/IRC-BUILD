@@ -205,7 +205,7 @@ const Chat: React.FC = () => {
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                     placeholder="Type a message or command (/help for commands)"
                     className="flex-1 border rounded p-2 mr-2"
                 />
