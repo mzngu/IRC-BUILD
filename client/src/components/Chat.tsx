@@ -52,7 +52,6 @@ const Chat: React.FC = () => {
         setSocket(newSocket);
         newSocket.emit('joinRoom', room);
 
-        // Socket event listeners
         newSocket.on('message', (msg: Message) => {
             setMessages(prev => [...prev, msg]);
         });
@@ -77,7 +76,6 @@ const Chat: React.FC = () => {
             setMessages(prev => [...prev, { ...msg, type: 'private' }]);
         });
 
-        // Request initial data
         newSocket.emit('getRoomList');
         newSocket.emit('getCurrentUser');
 
