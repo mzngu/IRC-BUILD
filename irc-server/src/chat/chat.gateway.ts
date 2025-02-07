@@ -95,7 +95,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @UseGuards(WsJwtGuard)
     @UsePipes(new ValidationPipe())
     async handleMessage(client: Socket, createMessageDto: CreateMessageDto): Promise<void> { 
-        const user = client.data.user; 
+        const user = client.data.user;
+        console.log('Received message:', createMessageDto);//test
+        console.log('User:', user); //test
         const sender = await this.usersService.findOne(user.username); 
 
         if (!sender) {
@@ -112,9 +114,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 sender: { username: sender.username, _id: sender._id.toString() },
                 createdAt: message.createdAt,
             });
+            console.log('Message saved:', message);//test
         } catch (error) {
             console.error('Error saving message:', error);
             client.emit('messageError', 'Could not send message.');
+            client.emit('messageError', 'Could not save message');//test
         }
     }
 
