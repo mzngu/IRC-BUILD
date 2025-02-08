@@ -43,41 +43,26 @@ const Chat: React.FC = () => {
             console.error('No token found');
             return;
         }
-
+    
         const newSocket = io('http://localhost:3000', {
             auth: { token },
         });
-
+    
         setSocket(newSocket);
         newSocket.emit('joinRoom', room);
-
+    
         newSocket.on('message', (msg: Message) => {
             setMessages(prev => [...prev, msg]);
         });
-
-        newSocket.on('userList', (userList: User[]) => {
-            setUsers(userList);
+    
+        newSocket.on('previousMessages', (messages: Message[]) => {
+            setMessages(messages);
         });
 
-        newSocket.on('roomList', (roomList: string[]) => {
-            setRooms(roomList);
-        });
-
-        newSocket.on('availableRooms', (rooms: Room[]) => {
-            setAvailableRooms(rooms);
-        });
-
-        newSocket.on('currentUser', (user: User) => {
-            setCurrentUser(user);
-        });
-
-        newSocket.on('privateMessage', (msg: Message) => {
-            setMessages(prev => [...prev, { ...msg, type: 'private' }]);
-        });
-
-        newSocket.emit('getRoomList');
-        newSocket.emit('getCurrentUser');
-
+        newSocket.on('channelList', (channels: string[]) => {
+            setRooms(channels);
+        });    
+    
         return () => {
             if (newSocket) {
                 newSocket.disconnect();

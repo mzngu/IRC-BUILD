@@ -252,12 +252,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @UseGuards(WsJwtGuard)
     async handleListUsersInChannel(client: Socket, channelName: string) {
         try {
-            const channel = await this.channelsService.findOne(channelName)
+            const channel = await this.channelsService.findOne(channelName);
             if (!channel) {
-                client.emit('usersError', 'Channel not found')
-                return
+                client.emit('usersError', 'Channel not found');
+                return;
             }
-            client.emit('usersList', channel.users.map(user => user.toString()))
+            client.emit('usersList', channel.users.map(user => user.toString()));
         } catch (error) {
             console.error("Error listing users in channel:", error);
             client.emit('usersError', 'Could not retrieve users list.');
