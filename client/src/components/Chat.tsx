@@ -61,6 +61,14 @@ const Chat: React.FC = () => {
 
         newSocket.on('channelList', (channels: string[]) => {
             setRooms(channels);
+        });   
+        
+        newSocket.on('userList', (userList: User[]) => {
+            setUsers(userList);
+        });
+        
+        newSocket.on('privateMessage', (msg: Message) => {
+            setMessages(prev => [...prev, { ...msg, type: 'private' }]);
         });    
     
         return () => {

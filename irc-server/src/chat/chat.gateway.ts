@@ -128,17 +128,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const user = client.data.user; 
         const sender = await this.usersService.findOne(user.username);
         const recipient = await this.usersService.findOne(payload.recipientUsername);
-
+    
         if (!sender || !recipient) {
             client.emit('privateMessageError', 'Invalid recipient.');
             return;
         }
-
+    
         try {
             const message = await this.messagesService.create(sender._id, payload.content, undefined, recipient._id);
             client.emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id.toString() }, createdAt: message.createdAt });
             this.server.to(recipient._id.toString()).emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id.toString() }, createdAt: message.createdAt });
-
+    
         } catch (error) {
             console.error('Error sending private message:', error);
             client.emit('privateMessageError', 'Could not send private message.');
