@@ -26,7 +26,6 @@ const Chat: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     
-    // New state for modals and interactions
     const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
     const [newNickname, setNewNickname] = useState('');
     const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false);
