@@ -18,10 +18,10 @@ import { ChannelsService } from 'src/channels/channels.service';
 import { AuthService } from 'src/auth/auth.service';
 import { Message } from './interfaces/message.interface';
 
-interface ConnectedUser { 
+interface ConnectedUser {
     userId: Types.ObjectId;
     username: string;
-  }
+}
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -53,10 +53,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 return;
             }
 
-            const user: ConnectedUser = {  
+            const user: ConnectedUser = {
                 userId: userDocument._id,
                 username: userDocument.username,
-              };
+            };
 
             this.connectedClients.set(client.id, { socket: client, user });
             client.data.user = user;
@@ -94,11 +94,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('message')
     @UseGuards(WsJwtGuard)
     @UsePipes(new ValidationPipe())
-    async handleMessage(client: Socket, createMessageDto: CreateMessageDto): Promise<void> { 
+    async handleMessage(client: Socket, createMessageDto: CreateMessageDto): Promise<void> {
         const user = client.data.user;
         console.log('Received message:', createMessageDto);//test
         console.log('User:', user); //test
-        const sender = await this.usersService.findOne(user.username); 
+        const sender = await this.usersService.findOne(user.username);
 
         if (!sender) {
             client.emit('messageError', 'Sender not found.');
@@ -124,21 +124,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     @SubscribeMessage('privateMessage')
     @UseGuards(WsJwtGuard)
-    async handlePrivateMessage(client: Socket, payload: { content: string, recipientUsername: string }) { 
-        const user = client.data.user; 
+    async handlePrivateMessage(client: Socket, payload: { content: string, recipientUsername: string }) {
+        const user = client.data.user;
         const sender = await this.usersService.findOne(user.username);
         const recipient = await this.usersService.findOne(payload.recipientUsername);
-    
+
         if (!sender || !recipient) {
             client.emit('privateMessageError', 'Invalid recipient.');
             return;
         }
-    
+
         try {
             const message = await this.messagesService.create(sender._id, payload.content, undefined, recipient._id);
             client.emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id.toString() }, createdAt: message.createdAt });
             this.server.to(recipient._id.toString()).emit('privateMessage', { ...payload, sender: { username: sender.username, _id: sender._id.toString() }, createdAt: message.createdAt });
-    
+
         } catch (error) {
             console.error('Error sending private message:', error);
             client.emit('privateMessageError', 'Could not send private message.');
@@ -148,7 +148,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('typing')
     @UseGuards(WsJwtGuard)
     handleTyping(client: Socket, data: { room: string, isTyping: boolean }) {
-        const user = client.data.user; 
+        const user = client.data.user;
         client.to(data.room).emit('typing', { username: user.username, isTyping: data.isTyping });
     }
     @SubscribeMessage('editMessage')
@@ -167,7 +167,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     @SubscribeMessage('deleteMessage')
     @UseGuards(WsJwtGuard)
-    async handleDeleteMessage(client: Socket, messageId: string) { 
+    async handleDeleteMessage(client: Socket, messageId: string) {
         try {
             const result = await this.messagesService.delete(messageId);
             if (result.deletedCount) {
@@ -266,7 +266,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('nick')
     async handleNickChange(client: Socket, newNickname: string, user: { userId: Types.ObjectId, username: string }) {
         try {
-            const existingUserWithNickname = await this.usersService.findOne(newNickname)
+            const existingUserWithNickname = await this.usersService.findOne(newNickname);
             if (existingUserWithNickname && existingUserWithNickname._id.toString() !== user.userId.toString()) {
                 client.emit('nickError', 'Nickname already taken.');
                 return;
@@ -277,7 +277,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 return;
             }
 
-            user.username = newNickname
+            user.username = newNickname;
 
             for (const room of client.rooms) {
                 if (room !== client.id) {

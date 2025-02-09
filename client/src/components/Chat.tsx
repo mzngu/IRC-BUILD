@@ -74,7 +74,17 @@ const Chat: React.FC = () => {
         
         newSocket.on('privateMessage', (msg: Message) => {
             setMessages(prev => [...prev, { ...msg, type: 'private' }]);
-        });    
+        }); 
+        
+        newSocket.on('userNickChanged', ({ oldNickname, newNickname }) => {
+            setUsers(prevUsers => prevUsers.map(user => 
+                user.username === oldNickname ? { ...user, username: newNickname } : user
+            ));
+        });
+
+        newSocket.on('roomList', (rooms: Channel[]) => {
+            setAvailableRooms(rooms);
+        });
     
         return () => {
             if (newSocket) {

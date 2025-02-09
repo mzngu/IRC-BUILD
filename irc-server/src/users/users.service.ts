@@ -9,9 +9,9 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
 
-  async createUser(createUserDto: CreateUserDto): Promise<UserDocument> { 
+  async createUser(createUserDto: CreateUserDto): Promise<UserDocument> {
     const { username, email, password } = createUserDto;
 
     const existingUser = await this.userModel.findOne({ $or: [{ username }, { email }] });
@@ -25,7 +25,7 @@ export class UsersService {
       const passwordHash = await bcrypt.hash(password, salt);
 
       const createdUser = new this.userModel({
-        _id: uuidv4(), 
+        _id: uuidv4(),
         username,
         email,
         passwordHash,
@@ -38,7 +38,7 @@ export class UsersService {
     }
   }
 
-  async searchUsers(query: string): Promise<UserDocument[]> { 
+  async searchUsers(query: string): Promise<UserDocument[]> {
     if (!query || query.trim() === '') {
       return [];
     }
@@ -49,16 +49,16 @@ export class UsersService {
       .exec();
   }
 
-  async updateUser(username: string, updateUserDto: UpdateUserDto): Promise<UserDocument | null> { 
-    const filter = { username }; 
+  async updateUser(username: string, updateUserDto: UpdateUserDto): Promise<UserDocument | null> {
+    const filter = { username };
     return this.userModel.findOneAndUpdate(filter, updateUserDto, { new: true }).exec();
   }
 
-  async findOne(username: string): Promise<UserDocument | null> { 
+  async findOne(username: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ username }).exec();
   }
 
-  async findById(id: Types.ObjectId): Promise<UserDocument | null> { 
+  async findById(id: Types.ObjectId): Promise<UserDocument | null> {
     return this.userModel.findById(id).exec();
   }
 
