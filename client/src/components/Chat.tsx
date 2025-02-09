@@ -12,10 +12,11 @@ interface User {
     _id: string;
 }
 
-interface Room {
+interface Channel {
     name: string;
     users: User[];
 }
+
 
 const Chat: React.FC = () => {
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -35,7 +36,7 @@ const Chat: React.FC = () => {
     const [isPrivateMessageModalOpen, setIsPrivateMessageModalOpen] = useState(false);
     const [privateMessageRecipient, setPrivateMessageRecipient] = useState('');
     const [privateMessageContent, setPrivateMessageContent] = useState('');
-    const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
+    const [availableRooms, setAvailableRooms] = useState<Channel[]>([]);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -57,6 +58,10 @@ const Chat: React.FC = () => {
     
         newSocket.on('previousMessages', (messages: Message[]) => {
             setMessages(messages);
+        });
+
+        newSocket.on('channelCreated', (channel: Channel) => {
+            setRooms(prev => [...prev, channel.name]);
         });
 
         newSocket.on('channelList', (channels: string[]) => {

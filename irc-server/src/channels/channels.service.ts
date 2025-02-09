@@ -5,7 +5,7 @@ import { Channel, ChannelDocument } from './schemas/channel.schema';
 
 @Injectable()
 export class ChannelsService {
-  constructor(@InjectModel(Channel.name) private channelModel: Model<ChannelDocument>) {}
+  constructor(@InjectModel(Channel.name) private channelModel: Model<ChannelDocument>) { }
 
   async create(name: string): Promise<Channel> {
     const createdChannel = new this.channelModel({ name, users: [] });
@@ -17,9 +17,9 @@ export class ChannelsService {
   }
 
   async findAll(query?: string): Promise<Channel[]> {
-      if (query) {
-          return this.channelModel.find({ name: { $regex: query, $options: 'i' } }).populate('users').exec()
-      }
+    if (query) {
+      return this.channelModel.find({ name: { $regex: query, $options: 'i' } }).populate('users').exec()
+    }
     return this.channelModel.find().populate('users').exec();
   }
 
@@ -29,17 +29,17 @@ export class ChannelsService {
 
   async addUserToChannel(channelName: string, userId: Types.ObjectId): Promise<Channel | null> {
     return this.channelModel.findOneAndUpdate(
-        { name: channelName },
-        { $push: { users: userId } },
-        { new: true }
+      { name: channelName },
+      { $push: { users: userId } },
+      { new: true }
     ).exec();
   }
 
   async removeUserFromChannel(channelName: string, userId: Types.ObjectId): Promise<Channel | null> {
     return this.channelModel.findOneAndUpdate(
-        { name: channelName },
-        { $pull: { users: userId } },
-        { new: true }
+      { name: channelName },
+      { $pull: { users: userId } },
+      { new: true }
     ).exec();
   }
 }
