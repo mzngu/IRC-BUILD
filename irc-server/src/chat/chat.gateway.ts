@@ -178,15 +178,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('messageDeleteError', 'Could not delete the message.');
         }
     }
-    @SubscribeMessage('list')
+    @SubscribeMessage('getRoomList')
     @UseGuards(WsJwtGuard)
     async handleListChannels(client: Socket, query?: string) {
         try {
             const channels = await this.channelsService.findAll(query);
-            client.emit('channelList', channels);
+            const channelList = channels.map(channel => ({
+                name: channel.name,
+                users: channel.users || []
+            }));
+            client.emit('roomList', channelList);
         } catch (error) {
             console.error("Error listing channels:", error);
-            client.emit('channelListError', 'Could not retrieve channel list.');
+            client.emit('error', 'Could not retrieve channel list.');
         }
     }
     @SubscribeMessage('create')
@@ -263,33 +267,53 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('usersError', 'Could not retrieve users list.');
         }
     }
-    @SubscribeMessage('nick')
-    async handleNickChange(client: Socket, newNickname: string, user: { userId: Types.ObjectId, username: string }) {
+//test
+    @SubscribeMessage('userList')
+    @UseGuards(WsJwtGuard)
+    private async broadcastUserList() {
+        const connectedUsers = Array.from(this.connectedClients.values()).map(({ user }) => ({
+            username: user.username,
+            _id: user.userId
+        }));
+        this.server.emit('userList', connectedUsers);
+    }
+    @SubscribeMessage('setNickname')
+    @UseGuards(WsJwtGuard)
+    async handleNickChange(client: Socket, newNickname: string) {
+        const user = client.data.user;
+        if (!user) {
+            client.emit('error', 'User not authenticated');
+            return;
+        }
+    
         try {
-            const existingUserWithNickname = await this.usersService.findOne(newNickname);
-            if (existingUserWithNickname && existingUserWithNickname._id.toString() !== user.userId.toString()) {
-                client.emit('nickError', 'Nickname already taken.');
+            const existingUser = await this.usersService.findOne(newNickname);
+            if (existingUser && existingUser._id.toString() !== user.userId.toString()) {
+                client.emit('error', 'Nickname already taken');
                 return;
             }
+    
             const updatedUser = await this.usersService.updateNickname(user.username, newNickname);
             if (!updatedUser) {
-                client.emit('nickError', 'Could not update nickname.');
+                client.emit('error', 'Could not update nickname');
                 return;
             }
-
-            user.username = newNickname;
-
-            for (const room of client.rooms) {
-                if (room !== client.id) {
-                    this.server.to(room).emit('userNickChanged', { oldNickname: user.username, newNickname });
-                }
-            }
-
-            client.emit('nickSuccess', newNickname);
+    
+            
+            client.data.user.username = newNickname;
+            
+            this.server.emit('nicknameChanged', {
+                oldNickname: user.username,
+                newNickname: newNickname,
+                userId: user.userId
+            });
+            
+            this.broadcastUserList();
         } catch (error) {
             console.error('Error changing nickname:', error);
-            client.emit('nickError', 'Could not change nickname.');
+            client.emit('error', 'Could not change nickname');
         }
     }
+
 }
 
