@@ -77,20 +77,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
     }
 
-    @SubscribeMessage('joinRoom')
-    @UseGuards(WsJwtGuard)
-    async handleJoinRoom(client: Socket, room: string) {
-        const user = client.data.user;
-        client.join(room);
-        try {
-            const messages = await this.messagesService.findMessagesByRoom(room);
-            client.emit('previousMessages', messages);
-        } catch (error) {
-            console.error("Error fetching previous messages:", error);
-            client.emit('previousMessagesError', 'Could not retrieve message history.');
-        }
-    }
-
     @SubscribeMessage('message')
     @UseGuards(WsJwtGuard)
     @UsePipes(new ValidationPipe())
@@ -187,34 +173,49 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 name: channel.name,
                 users: channel.users || []
             }));
-            client.emit('roomList', channelList);
+            client.emit('roomList', channelList); 
         } catch (error) {
             console.error("Error listing channels:", error);
             client.emit('error', 'Could not retrieve channel list.');
         }
     }
-    @SubscribeMessage('create')
+    @SubscribeMessage('createRoom') 
     @UseGuards(WsJwtGuard)
     async handleCreateChannel(client: Socket, channelName: string) {
         try {
             const channel = await this.channelsService.create(channelName);
-            this.server.emit('channelCreated', channel);
+            this.server.emit('channelCreated', channel); 
         } catch (error) {
             console.error("Error creating channel:", error);
             client.emit('channelCreateError', 'Could not create channel.');
         }
     }
-    @SubscribeMessage('delete')
+    @SubscribeMessage('deleteRoom')
     @UseGuards(WsJwtGuard)
     async handleDeleteChannel(client: Socket, channelName: string) {
         try {
             await this.channelsService.delete(channelName);
-            this.server.emit('channelDeleted', channelName);
+            this.server.emit('channelDeleted', channelName); 
         } catch (error) {
             console.error("Error deleting channel:", error);
             client.emit('channelDeleteError', 'Could not delete channel.');
         }
     }
+
+    @SubscribeMessage('joinRoom')
+    @UseGuards(WsJwtGuard)
+    async handleJoinRoom(client: Socket, room: string) {
+        const user = client.data.user;
+        client.join(room);
+        try {
+            const messages = await this.messagesService.findMessagesByRoom(room);
+            client.emit('previousMessages', messages);
+        } catch (error) {
+            console.error("Error fetching previous messages:", error);
+            client.emit('previousMessagesError', 'Could not retrieve message history.');
+        }
+    }
+
     @SubscribeMessage('join')
     @UseGuards(WsJwtGuard)
     async handleJoinChannel(client: Socket, channelName: string, user: { userId: Types.ObjectId, username: string }) {
@@ -233,20 +234,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('joinError', 'Could not join channel.');
         }
     }
-    @SubscribeMessage('quit')
+    @SubscribeMessage('quitRoom')
     @UseGuards(WsJwtGuard)
-    async handleQuitChannel(client: Socket, channelName: string, user: { userId: Types.ObjectId, username: string }) {
+    async handleQuitChannel(client: Socket, channelName: string) {
+        const user = client.data.user;
         try {
-            const channel = await this.channelsService.findOne(channelName)
-            if (!channel) {
-                client.emit('quitError', 'Channel not found')
-                return
-            }
-            await this.channelsService.removeUserFromChannel(channelName, user.userId)
-            client.leave(channelName)
-            client.emit('quitSuccess', channel)
-            this.server.to(channelName).emit('userLeftChannel', { username: user.username })
-
+            await this.channelsService.removeUserFromChannel(channelName, user.userId);
+            client.leave(channelName);
+            this.server.to(channelName).emit('userLeftChannel', { username: user.username });
         } catch (error) {
             console.error("Error quitting channel:", error);
             client.emit('quitError', 'Could not quit channel.');

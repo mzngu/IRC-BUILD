@@ -126,6 +126,7 @@ const Chat: React.FC = () => {
         });
 
         newSocket.on('roomList', (rooms: Channel[]) => {
+            console.log('Received channel list:', rooms);
             setAvailableRooms(rooms);
         });
 
@@ -260,6 +261,13 @@ const Chat: React.FC = () => {
                 >
                     Users List
                 </button>
+
+                <button
+                    onClick={quitChannel}
+                    className="bg-red-500 text-white px-4 py-2 rounded"
+                >
+                    Quit Room
+                </button>
             </div>
 
             {/* Nickname Change Modal */}
@@ -346,6 +354,16 @@ const Chat: React.FC = () => {
                         </div>
                     ))}
                 </div>
+                {/* Add the Quit Room button here */}
+                <button
+                    onClick={() => {
+                        quitChannel();
+                        setIsRoomListModalOpen(false);
+                    }}
+                    className="mt-4 bg-red-500 text-white px-4 py-2 rounded w-full"
+                >
+                    Quit Current Room
+                </button>
             </Modal>
 
             {/* Users List Modal */}
@@ -411,21 +429,29 @@ const Chat: React.FC = () => {
                 <label className="block text-gray-700 text-sm font-bold mb-2">
                     Current Room: {room}
                 </label>
-                <select
-                    value={room}
-                    onChange={(e) => {
-                        if (socket) {
-                            socket.emit('joinRoom', e.target.value);
-                            setRoom(e.target.value);
-                            setMessages([]);
-                        }
-                    }}
-                    className="shadow border rounded w-full py-2 px-3"
-                >
-                    {rooms.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                    ))}
-                </select>
+                <div className="flex space-x-2">
+                    <select
+                        value={room}
+                        onChange={(e) => {
+                            if (socket) {
+                                socket.emit('joinRoom', e.target.value);
+                                setRoom(e.target.value);
+                                setMessages([]);
+                            }
+                        }}
+                        className="shadow border rounded w-full py-2 px-3"
+                    >
+                        {rooms.map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                        ))}
+                    </select>
+                    <button
+                        onClick={quitChannel}
+                        className="bg-red-500 text-white px-4 py-2 rounded"
+                    >
+                        Quit Room
+                    </button>
+                </div>
             </div>
 
             {/* Users List */}
