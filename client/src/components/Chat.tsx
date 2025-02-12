@@ -5,6 +5,7 @@ interface Message {
     content: string;
     sender: { username: string; _id: string };
     type?: 'system' | 'private' | 'normal';
+    room?: string;
 }
 
 interface User {
@@ -53,17 +54,19 @@ const Chat: React.FC = () => {
         });
 
         setSocket(newSocket);
-        newSocket.emit('joinRoom', room);
+        newSocket.emit('joinRoom', 'general');
+        newSocket.emit('getPreviousMessages', 'general');
 
-        newSocket.emit('getRoomList');
+        // const handleMessage = (msg: Message) => {
+        //     console.log('Received message:', msg);
+        //     setMessages(prev => [...prev, msg]);
+        // };
 
-        newSocket.on('message', (msg: Message) => {
-            console.log('Received message:', msg);
-            setMessages(prev => [...prev, msg]);
-        });
+        // newSocket.on('message', handleMessage);
 
-        newSocket.on('previousMessages', (messages: Message[]) => {
-            setMessages(messages);
+        newSocket.on('previousMessages', (prevMessages: Message[]) => {
+            console.log('Received previous messages:', prevMessages);
+            setMessages(prevMessages);
         });
 
         newSocket.on('channelCreated', (channel: Channel) => {
@@ -74,8 +77,11 @@ const Chat: React.FC = () => {
 
         newSocket.on('channelList', (channels: Channel[]) => {
             console.log('Received channel list:', channels);
-            setAvailableRooms(channels);
-            setRooms(channels.map(c => c.name));
+            const roomNames = channels.map(c => c.name);
+            if (!roomNames.includes('general')) {
+                roomNames.unshift('general');
+            }
+            setRooms(roomNames);
         });
 
         newSocket.on('userJoined', (channelName: string, user: User) => {
@@ -120,7 +126,6 @@ const Chat: React.FC = () => {
 
         newSocket.on('roomChanged', (newRoom: string) => {
             setRoom(newRoom);
-            setMessages([]);
         });
 
         newSocket.on('roomJoined', (typingUsers: string[]) => {
@@ -143,11 +148,57 @@ const Chat: React.FC = () => {
         };
     }, []);
 
+    // useEffect(() => {
+    //     if (socket) {
+    //         socket.emit('getUserList');
+    //         socket.emit('getRoomList');
+    //         socket.emit('getPreviousMessages', room);
+    //     }
+    // }, [socket, room]);
+
     useEffect(() => {
         if (socket) {
-            socket.emit('getUserList');
+            socket.on('roomList', (channels: Channel[]) => {
+                const roomNames = channels.map(channel => channel.name);
+                if (!roomNames.includes('general')) {
+                    roomNames.unshift('general');
+                }
+                setRooms(roomNames);
+            });
+
             socket.emit('getRoomList');
-            socket.emit('getPreviousMessages', room);
+
+            return () => {
+                socket.off('roomList');
+            };
+        }
+    }, [socket]);
+
+    useEffect(() => {
+        if (socket) {
+            socket.on('roomChanged', (newRoom: string) => {
+                setRoom(newRoom);
+            });
+
+            return () => {
+                socket.off('roomChanged');
+            };
+        }
+    }, [socket]);
+
+    useEffect(() => {
+        if (socket) {
+            const handleMessage = (msg: Message) => {
+                if (msg.room === room || msg.type === 'private') {
+                    setMessages(prev => [...prev, msg]);
+                }
+            };
+
+            socket.on('message', handleMessage);
+
+            return () => {
+                socket.off('message', handleMessage);
+            };
         }
     }, [socket, room]);
 
@@ -202,6 +253,19 @@ const Chat: React.FC = () => {
             setIsPrivateMessageModalOpen(false);
             setPrivateMessageRecipient('');
             setPrivateMessageContent('');
+        }
+    };
+
+    const handleRoomChange = (newRoom: string) => {
+        if (socket && newRoom !== room) {
+            setMessages([]);
+            socket.emit('quitRoom', room);
+            socket.emit('joinRoom', newRoom);
+            setRoom(newRoom);
+
+            socket.emit('getPreviousMessages', newRoom);
+            socket.emit('getRoomList');
+            socket.emit('getUserList');
         }
     };
 
@@ -434,19 +498,21 @@ const Chat: React.FC = () => {
                 <div className="flex space-x-2">
                     <select
                         value={room}
-                        onChange={(e) => {
-                            if (socket) {
-                                socket.emit('joinRoom', e.target.value);
-                                setRoom(e.target.value);
-                                setMessages([]);
-                            }
-                        }}
+                        onChange={(e) => handleRoomChange(e.target.value)}
                         className="shadow border rounded w-full py-2 px-3"
                     >
                         {rooms.map((r) => (
                             <option key={r} value={r}>{r}</option>
                         ))}
                     </select>
+                    <button
+                        onClick={() => {
+                            socket?.emit('getRoomList');  // Refresh room list when clicking button
+                        }}
+                        className="bg-blue-500 text-white px-4 py-2 rounded"
+                    >
+                        Refresh Rooms
+                    </button>
                     <button
                         onClick={quitChannel}
                         className="bg-red-500 text-white px-4 py-2 rounded"

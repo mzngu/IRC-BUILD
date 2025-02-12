@@ -221,6 +221,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         try {
             const messages = await this.messagesService.findMessagesByRoom(room);
             client.emit('previousMessages', messages);
+            client.emit('roomChanged', room);
         } catch (error) {
             console.error("Error fetching previous messages:", error);
             client.emit('previousMessagesError', 'Could not retrieve message history.');
