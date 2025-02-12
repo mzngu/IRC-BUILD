@@ -62,6 +62,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.data.user = user;
             console.log(`Client connected: ${client.id} - ${user.username}`);
             this.server.emit('userJoined', { userId: client.id, username: user.username });
+
+            await this.handleListChannels(client);
+
+            this.broadcastUserList();
         } catch (error) {
             console.error('Connection error:', error);
             client.disconnect(true);
@@ -74,6 +78,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             console.log(`Client disconnected: ${client.id} - ${user.username}`);
             this.connectedClients.delete(client.id);
             this.server.emit('userLeft', { userId: client.id, username: user.username });
+
+            this.broadcastUserList();
         }
     }
 
@@ -173,18 +179,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 name: channel.name,
                 users: channel.users || []
             }));
-            client.emit('roomList', channelList); 
+
+            if (!channelList.some(channel => channel.name === 'general')) {
+                channelList.unshift({ name: 'general', users: [] });
+            }
+
+            client.emit('roomList', channelList);
         } catch (error) {
             console.error("Error listing channels:", error);
             client.emit('error', 'Could not retrieve channel list.');
         }
     }
-    @SubscribeMessage('createRoom') 
+    @SubscribeMessage('createRoom')
     @UseGuards(WsJwtGuard)
     async handleCreateChannel(client: Socket, channelName: string) {
         try {
             const channel = await this.channelsService.create(channelName);
-            this.server.emit('channelCreated', channel); 
+            this.server.emit('channelCreated', channel);
         } catch (error) {
             console.error("Error creating channel:", error);
             client.emit('channelCreateError', 'Could not create channel.');
@@ -195,7 +206,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     async handleDeleteChannel(client: Socket, channelName: string) {
         try {
             await this.channelsService.delete(channelName);
-            this.server.emit('channelDeleted', channelName); 
+            this.server.emit('channelDeleted', channelName);
         } catch (error) {
             console.error("Error deleting channel:", error);
             client.emit('channelDeleteError', 'Could not delete channel.');
@@ -262,7 +273,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('usersError', 'Could not retrieve users list.');
         }
     }
-//test
+    //test
     @SubscribeMessage('userList')
     @UseGuards(WsJwtGuard)
     private async broadcastUserList() {
@@ -280,29 +291,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             client.emit('error', 'User not authenticated');
             return;
         }
-    
+
         try {
             const existingUser = await this.usersService.findOne(newNickname);
             if (existingUser && existingUser._id.toString() !== user.userId.toString()) {
                 client.emit('error', 'Nickname already taken');
                 return;
             }
-    
+
             const updatedUser = await this.usersService.updateNickname(user.username, newNickname);
             if (!updatedUser) {
                 client.emit('error', 'Could not update nickname');
                 return;
             }
-    
-            
+
+
             client.data.user.username = newNickname;
-            
+
             this.server.emit('nicknameChanged', {
                 oldNickname: user.username,
                 newNickname: newNickname,
                 userId: user.userId
             });
-            
+
             this.broadcastUserList();
         } catch (error) {
             console.error('Error changing nickname:', error);

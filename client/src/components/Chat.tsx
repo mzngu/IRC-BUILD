@@ -55,6 +55,8 @@ const Chat: React.FC = () => {
         setSocket(newSocket);
         newSocket.emit('joinRoom', room);
 
+        newSocket.emit('getRoomList');
+
         newSocket.on('message', (msg: Message) => {
             console.log('Received message:', msg);
             setMessages(prev => [...prev, msg]);
