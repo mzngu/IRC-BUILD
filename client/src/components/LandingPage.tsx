@@ -4,8 +4,8 @@ const LandingPage = () => {
     return (
         <div className="landing-page min-h-screen flex flex-col">
             <header className="landing-page-header bg-blue-600 text-white p-6">
-                <h1 className="text-4xl font-bold">Welcome to IRC-BUILD</h1>
-                <p className="text-lg mt-2">Your one-stop solution for IRC development</p>
+                <h1 className="text-4xl font-bold">Welcome to our chat service</h1>
+                <p className="text-lg mt-2">Chatservice to chat with friends</p>
             </header>
             <main className="landing-page-main flex-grow p-6">
                 <section className="cta">
@@ -23,7 +23,7 @@ const LandingPage = () => {
                     </button>
                 </section>  </main>
             <footer className="landing-page-footer bg-gray-800 text-white p-4 text-center">
-                <p>&copy; 2023 IRC-BUILD. All rights reserved.</p>
+                <p>&copy; chat app</p>
             </footer>
         </div>
     );
