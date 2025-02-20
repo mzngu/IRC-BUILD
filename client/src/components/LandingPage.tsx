@@ -5,7 +5,7 @@ const LandingPage = () => {
         <div className="landing-page min-h-screen flex flex-col">
             <header className="landing-page-header bg-blue-600 text-white p-6">
                 <h1 className="text-4xl font-bold">Welcome to our chat service</h1>
-                <p className="text-lg mt-2">Chatservice to chat with friends</p>
+                <p className="text-lg mt-2">Chat service to chat with friends</p>
             </header>
             <main className="landing-page-main flex-grow p-6">
                 <section className="cta">

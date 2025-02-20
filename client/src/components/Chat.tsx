@@ -57,13 +57,6 @@ const Chat: React.FC = () => {
         newSocket.emit('joinRoom', 'general');
         newSocket.emit('getPreviousMessages', 'general');
 
-        // const handleMessage = (msg: Message) => {
-        //     console.log('Received message:', msg);
-        //     setMessages(prev => [...prev, msg]);
-        // };
-
-        // newSocket.on('message', handleMessage);
-
         newSocket.on('previousMessages', (prevMessages: Message[]) => {
             console.log('Received previous messages:', prevMessages);
             setMessages(prevMessages);
@@ -148,13 +141,6 @@ const Chat: React.FC = () => {
         };
     }, []);
 
-    // useEffect(() => {
-    //     if (socket) {
-    //         socket.emit('getUserList');
-    //         socket.emit('getRoomList');
-    //         socket.emit('getPreviousMessages', room);
-    //     }
-    // }, [socket, room]);
 
     useEffect(() => {
         if (socket) {
